@@ -138,7 +138,10 @@
 
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { useGetPostByIdQuery, useGetPublishedPostsQuery } from "@/features/posts/postApi";
+import {
+  useGetPostByIdQuery,
+  useGetPublishedPostsQuery,
+} from "@/features/posts/postApi";
 
 export default function BlogDetails() {
   const { id } = useParams();
@@ -156,7 +159,7 @@ export default function BlogDetails() {
   });
 
   return (
-    <div className="pt-24 pb-16 min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="pt-4 pb-16 min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <div className="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-[2.4fr_0.6fr] gap-10 px-2">
         {/* LEFT: Main Article */}
         <motion.div

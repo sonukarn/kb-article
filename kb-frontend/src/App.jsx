@@ -34,6 +34,7 @@ import Dashboard from "./pages/agents/Dashboard";
 import MyPosts from "./pages/agents/MyPosts";
 import UpdateRequests from "./pages/agents/UpdateRequests";
 import EditProfile from "./pages/agents/EditProfile";
+import CategoriesAdmin from "./pages/admin/Categories";
 
 export default function App() {
   // const dispatch = useDispatch();
@@ -73,6 +74,8 @@ export default function App() {
           <Route path="all" element={<AllPosts />} />
           <Route path="users" element={<Users />} />
           <Route path="update-requests" element={<AdminUpdateRequests />} />
+          <Route path="categories" element={<CategoriesAdmin />} />
+
           <Route path="/admin/posts/:id/view" element={<AdminPostView />} />
 
           <Route path="announcements" element={<AnnouncementsAdmin />} />

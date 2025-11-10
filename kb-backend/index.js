@@ -8,6 +8,7 @@ import cookieParser from "cookie-parser";
 import authRoutes from "./routes/authRoutes.js";
 import postsRoutes from "./routes/posts.js";
 import AnouncementsRoute from "./routes/announcementRoutes.js";
+import categoryRoutes from "./routes/categoryRoutes.js";
 import user from "./routes/userRoute.js";
 const app = express();
 const server = http.createServer(app);
@@ -64,6 +65,7 @@ app.use(
 app.use("/api/auth", authRoutes);
 app.use("/api/posts", postsRoutes);
 app.use("/api/announcements", AnouncementsRoute);
+app.use("/api/categories", categoryRoutes);
 app.use("/api/users", user);
 
 // health

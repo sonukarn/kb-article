@@ -465,6 +465,11 @@ import {
   useCreatePostMutation,
   useGenerateContentMutation,
 } from "@/features/posts/postApi";
+import {
+  useGetCategoriesQuery,
+  useCreateCategoryMutation,
+} from "@/features/categories/categoryApi";
+
 import { useNavigate } from "react-router-dom";
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
@@ -474,27 +479,38 @@ export default function CreatePost() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [tags, setTags] = useState("");
-  const [category, setCategory] = useState("");
+  // const [category, setCategory] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [newCategoryName, setNewCategoryName] = useState("");
 
   const [createPost, { isLoading }] = useCreatePostMutation();
   const [generateContent, { isLoading: isGenerating }] =
     useGenerateContentMutation();
   const navigate = useNavigate();
+  const { data: catData } = useGetCategoriesQuery("APPROVED");
+  const approvedCategories = catData?.categories || [];
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!category) {
-      toast.error("Please select a category");
+    if (!categoryId && !newCategoryName.trim()) {
+      toast.error("Please select or create a category");
       return;
     }
 
     try {
+      // await createPost({
+      //   title,
+      //   content,
+      //   tags,
+      //   category,
+      // }).unwrap();
       await createPost({
         title,
         content,
         tags,
-        category,
+        categoryId: categoryId || null,
+        newCategoryName: newCategoryName || null,
       }).unwrap();
       toast.success("Post submitted for review!");
       navigate("/");
@@ -511,8 +527,15 @@ export default function CreatePost() {
     }
 
     try {
+      const categoryLabel =
+        newCategoryName.trim() ||
+        approvedCategories.find((c) => c.id == categoryId)?.name ||
+        "";
+      // const prompt = `${title}${
+      //   category ? ` in the category of ${category}` : ""
+      // }`;
       const prompt = `${title}${
-        category ? ` in the category of ${category}` : ""
+        categoryLabel ? ` in the category of ${categoryLabel}` : ""
       }`;
       const res = await generateContent(prompt).unwrap();
       setContent(res.content);
@@ -523,14 +546,14 @@ export default function CreatePost() {
     }
   };
 
-  const categories = [
-    "Technology",
-    "Business",
-    "Design",
-    "Marketing",
-    "AI",
-    "Cloud",
-  ];
+  // const categories = [
+  //   "Technology",
+  //   "Business",
+  //   "Design",
+  //   "Marketing",
+  //   "AI",
+  //   "Cloud",
+  // ];
 
   // Custom toolbar modules
   const modules = {
@@ -589,7 +612,7 @@ export default function CreatePost() {
 
       {/* Category + AI Button */}
       <div className="flex items-center justify-between gap-3 mb-6">
-        <select
+        {/* <select
           value={category}
           onChange={(e) => setCategory(e.target.value)}
           className="border border-gray-300 rounded-md px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -598,7 +621,44 @@ export default function CreatePost() {
           {categories.map((cat) => (
             <option key={cat}>{cat}</option>
           ))}
-        </select>
+        </select> */}
+        <div className="flex flex-col gap-1 w-full">
+          <label className="text-sm text-gray-600">Category</label>
+
+          {/* ✅ Option 1: Select existing approved category */}
+          <select
+            value={categoryId}
+            onChange={(e) => {
+              setCategoryId(e.target.value);
+              setNewCategoryName(""); // reset if they choose dropdown
+            }}
+            className="border border-gray-300 rounded-md px-3 py-2 text-gray-700"
+          >
+            <option value="">Select existing category</option>
+            {approvedCategories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+
+          {/* ✅ OR type new category */}
+          <input
+            type="text"
+            placeholder="Or create new category"
+            value={newCategoryName}
+            onChange={(e) => {
+              setNewCategoryName(e.target.value);
+              setCategoryId(""); // reset dropdown
+            }}
+            className="border border-gray-300 rounded-md px-3 py-2"
+          />
+          {newCategoryName && (
+            <p className="text-xs text-orange-600">
+              New category (will require admin approval)
+            </p>
+          )}
+        </div>
 
         <button
           type="button"

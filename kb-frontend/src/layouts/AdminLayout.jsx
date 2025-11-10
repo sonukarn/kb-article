@@ -181,6 +181,12 @@ export default function AdminLayout() {
                 All Posts
               </NavLink>
               <NavLink
+                to="/admin/categories"
+                className={({ isActive }) => linkClass(isActive)}
+              >
+                Categories
+              </NavLink>
+              <NavLink
                 to="/admin/users"
                 className={({ isActive }) => linkClass(isActive)}
               >
@@ -246,6 +252,13 @@ export default function AdminLayout() {
           >
             All Posts
           </NavLink>
+          <NavLink
+            to="/admin/categories"
+            className={({ isActive }) => linkClass(isActive)}
+          >
+            Categories
+          </NavLink>
+
           <NavLink
             to="/admin/users"
             className={({ isActive }) => linkClass(isActive)}
