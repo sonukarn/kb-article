@@ -46,6 +46,13 @@ export const postApi = API.injectEndpoints({
       }),
       providesTags: ["Posts"],
     }),
+    getPostBySlug: builder.query({
+      query: (slug) => ({
+        url: `/posts/slug/${slug}`,
+        method: "GET",
+      }),
+      providesTags: ["Posts"],
+    }),
     // ✅ Admin: list review posts
     listReviewPosts: builder.query({
       query: () => ({
@@ -156,4 +163,5 @@ export const {
   useGetMyUpdateRequestsQuery,
   useListUpdateRequestsAdminQuery,
   useActionUpdateRequestMutation,
+  useGetPostBySlugQuery,
 } = postApi;

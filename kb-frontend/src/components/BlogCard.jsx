@@ -178,7 +178,7 @@ export default function BlogCard({ blog }) {
       transition={{ duration: 0.25, ease: "easeOut" }}
       className="bg-white rounded-2xl shadow-md hover:shadow-lg transition-all border border-gray-100 cursor-pointer group"
     >
-      <Link to={`/blog/${blog.id || blog._id}`}>
+      <Link to={`/kb/${blog.slug || blog._id}`}>
         <div className="p-5 sm:p-6">
           {/* Blog Title */}
           <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2 group-hover:text-indigo-600 transition-colors line-clamp-2">

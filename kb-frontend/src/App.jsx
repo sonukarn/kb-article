@@ -43,7 +43,8 @@ export default function App() {
     <Routes>
       <Route element={<MainLayout />}>
         <Route index element={<Home />} />
-        <Route path="/blog/:id" element={<BlogDetails />} />
+        {/* <Route path="/blog/:id" element={<BlogDetails />} /> */}
+        <Route path="/kb/:slug" element={<BlogDetails />} />
         <Route
           path="/create-blog"
           element={

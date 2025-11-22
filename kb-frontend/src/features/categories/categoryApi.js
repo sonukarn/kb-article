@@ -45,7 +45,16 @@ export const categoryApi = API.injectEndpoints({
       }),
       invalidatesTags: ["Categories"],
     }),
-
+    // ✅ Admin: rename category (inline edit)
+    renameCategory: builder.mutation({
+      query: ({ id, name }) => ({
+        url: `/categories/${id}`,
+        method: "PATCH",
+        body: { name },
+        credentials: "include",
+      }),
+      invalidatesTags: ["Categories"],
+    }),
     // ✅ Admin: delete category
     deleteCategory: builder.mutation({
       query: (id) => ({
@@ -64,4 +73,5 @@ export const {
   useApproveCategoryMutation,
   useRejectCategoryMutation,
   useDeleteCategoryMutation,
+  useRenameCategoryMutation,
 } = categoryApi;

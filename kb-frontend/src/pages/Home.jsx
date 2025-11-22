@@ -864,7 +864,8 @@ export default function Home() {
                 {recent.map((r) => (
                   <li key={r.id}>
                     <Link
-                      to={`/blog/${r.id}`}
+                      // to={`/blog/${r.id}`}
+                      to={`/kb/${r.slug}`}
                       className="block hover:text-indigo-600 transition"
                     >
                       <p className="font-medium text-gray-900 text-sm line-clamp-2">
@@ -884,7 +885,7 @@ export default function Home() {
             )}
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm p-4">
+          {/* <div className="bg-white rounded-xl shadow-sm p-4">
             <h3 className="text-lg font-semibold text-gray-800 mb-4 border-b pb-2">
               Featured Topic
             </h3>
@@ -892,7 +893,7 @@ export default function Home() {
               Stay ahead with insights on AI, technology, and innovation shaping
               the future.
             </p>
-          </div>
+          </div> */}
         </aside>
       </div>
     </div>

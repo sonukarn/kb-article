@@ -140,12 +140,14 @@ import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   useGetPostByIdQuery,
+  useGetPostBySlugQuery,
   useGetPublishedPostsQuery,
 } from "@/features/posts/postApi";
-
 export default function BlogDetails() {
-  const { id } = useParams();
-  const { data: blog, isLoading, isError } = useGetPostByIdQuery(id);
+  // const { id } = useParams();
+  // const { data: blog, isLoading, isError } = useGetPostByIdQuery(id);
+  const { slug } = useParams(); // 👈 previously id
+  const { data: blog, isLoading, isError } = useGetPostBySlugQuery(slug);
   const { data: recent = [] } = useGetPublishedPostsQuery(); // 🆕 recent sidebar
 
   if (isLoading) return <div className="pt-20 text-center">Loading...</div>;
@@ -237,7 +239,8 @@ export default function BlogDetails() {
                   .map((r) => (
                     <li key={r.id}>
                       <Link
-                        to={`/blog/${r.id}`}
+                        // to={`/blog/${r.id}`}
+                        to={`/kb/${r.slug}`}
                         className="block hover:text-indigo-600 transition"
                       >
                         <p className="font-medium text-gray-900 text-sm line-clamp-2">

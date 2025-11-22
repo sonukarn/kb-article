@@ -1,6 +1,7 @@
 import prisma from "../config/prismaClient.js";
 import fs from "fs";
 import main from "../config/AiGemini.js";
+import { generateShortSlug } from "../utils/generateSlug.js";
 
 // helper to send notification
 const notifyUser = (req, userId, payload) => {
@@ -54,6 +55,56 @@ async function resolveCategoryOnCreate({
 }
 
 // ✅ Create Post
+// export const createPost = async (req, res) => {
+//   try {
+//     const { title, content, tags, categoryId, newCategoryName } = req.body;
+
+//     if (!title || !content)
+//       return res.status(400).json({ message: "Title and content required" });
+
+//     let resolvedCategoryId = null;
+//     try {
+//       resolvedCategoryId = await resolveCategoryOnCreate({
+//         categoryId,
+//         newCategoryName,
+//         userId: req.user?.id,
+//       });
+//     } catch (e) {
+//       return res.status(400).json({ message: e.message });
+//     }
+
+//     const post = await prisma.kBPost.create({
+//       data: {
+//         title,
+//         content,
+//         tags: tags
+//           ? Array.isArray(tags)
+//             ? tags.join(",")
+//             : tags.toString()
+//           : null,
+//         categoryId: resolvedCategoryId,
+//         authorId: req.user.id,
+//         status: "REVIEW",
+//       },
+//       include: { category: true },
+//     });
+
+//     res.status(201).json({
+//       message: "Post submitted for review",
+//       post: {
+//         id: post.id,
+//         title: post.title,
+//         content: post.content,
+//         tags: post.tags ? post.tags.split(",") : [],
+//         status: post.status,
+//         category: formatCategory(post.category),
+//       },
+//     });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ message: "Error creating post" });
+//   }
+// };
 export const createPost = async (req, res) => {
   try {
     const { title, content, tags, categoryId, newCategoryName } = req.body;
@@ -72,9 +123,22 @@ export const createPost = async (req, res) => {
       return res.status(400).json({ message: e.message });
     }
 
+    // 🔹 generate base slug from title
+    const baseSlug = generateShortSlug(title);
+
+    // 🔹 ensure unique in DB
+    let finalSlug = baseSlug;
+    const existing = await prisma.kBPost.findUnique({
+      where: { slug: finalSlug },
+    });
+    if (existing) {
+      finalSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
+    }
+
     const post = await prisma.kBPost.create({
       data: {
         title,
+        slug: finalSlug, // 👈 SAVE SLUG
         content,
         tags: tags
           ? Array.isArray(tags)
@@ -92,6 +156,7 @@ export const createPost = async (req, res) => {
       message: "Post submitted for review",
       post: {
         id: post.id,
+        slug: post.slug, // 👈 RETURN SLUG
         title: post.title,
         content: post.content,
         tags: post.tags ? post.tags.split(",") : [],
@@ -186,6 +251,7 @@ export const getPublishedPosts = async (req, res) => {
 
     const result = posts.map((p) => ({
       id: p.id,
+      slug: p.slug,
       title: p.title,
       content: p.content,
       tags: p.tags ? p.tags.split(",") : [],
@@ -237,6 +303,44 @@ export const getKBPostById = async (req, res) => {
     console.error(err);
     res.status(500).json({
       message: "Error fetching post",
+      success: false,
+    });
+  }
+};
+// ✅ Get single published post by slug (for public URL)
+export const getKBPostBySlug = async (req, res) => {
+  try {
+    const { slug } = req.params;
+
+    const post = await prisma.kBPost.findUnique({
+      where: { slug },
+      include: { author: true, category: true },
+    });
+
+    if (!post || post.status !== "PUBLISHED") {
+      return res.status(404).json({
+        message: "Post not found or not published",
+        success: false,
+      });
+    }
+
+    res.json({
+      id: post.id,
+      slug: post.slug,
+      title: post.title,
+      content: post.content,
+      tags: post.tags ? post.tags.split(",") : [],
+      category: formatCategory(post.category),
+      status: post.status,
+      author: post.author
+        ? `${post.author.firstName} ${post.author.lastName}`
+        : "Deleted User",
+      publishedAt: post.publishedAt,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      message: "Error fetching post by slug",
       success: false,
     });
   }
@@ -357,6 +461,73 @@ export const deletePost = async (req, res) => {
 };
 
 // ✅ Get posts by logged-in user
+// export const getPostsByUser = async (req, res) => {
+//   try {
+//     if (!req.user?.id) {
+//       return res.status(401).json({ message: "Not authenticated" });
+//     }
+
+//     const userId = Number(req.user.id);
+
+//     const posts = await prisma.kBPost.findMany({
+//       where: { authorId: userId },
+//       orderBy: { createdAt: "desc" },
+//       include: { category: true },
+//     });
+
+//     const result = posts.map((p) => ({
+//       id: p.id,
+//       title: p.title,
+//       status: p.status,
+//       createdAt: p.createdAt,
+//       category: formatCategory(p.category),
+//     }));
+
+//     res.json({ success: true, posts: result });
+//   } catch (err) {
+//     console.error("Error in getPostsByUser:", err);
+//     res.status(500).json({ success: false, message: "Error fetching posts" });
+//   }
+// };
+// ✅ Get posts by logged-in user (for dashboard)
+// export const getPostsByUser = async (req, res) => {
+//   try {
+//     if (!req.user?.id) {
+//       return res.status(401).json({ message: "Not authenticated" });
+//     }
+
+//     const userId = Number(req.user.id);
+
+//     const posts = await prisma.kBPost.findMany({
+//       where: { authorId: userId },
+//       orderBy: { createdAt: "desc" },
+//       include: { category: true },
+//     });
+
+//     const result = posts.map((p) => ({
+//       id: p.id,
+//       title: p.title,
+//       content: p.content,
+//       tags: p.tags ? p.tags.split(",") : [],
+//       status: p.status,
+//       rejectReason: p.rejectReason, // ✅ important for rejected posts
+//       canEdit: p.canEdit, // ✅ key field for “Edit” button
+//       createdAt: p.createdAt,
+//       category: p.category
+//         ? {
+//             id: p.category.id,
+//             name: p.category.name,
+//             status: p.category.status,
+//           }
+//         : null,
+//     }));
+
+//     res.json({ success: true, posts: result });
+//   } catch (err) {
+//     console.error("Error in getPostsByUser:", err);
+//     res.status(500).json({ success: false, message: "Error fetching posts" });
+//   }
+// };
 export const getPostsByUser = async (req, res) => {
   try {
     if (!req.user?.id) {
@@ -373,10 +544,21 @@ export const getPostsByUser = async (req, res) => {
 
     const result = posts.map((p) => ({
       id: p.id,
+      slug: p.slug,
       title: p.title,
+      content: p.content, // include content for editing
+      tags: p.tags ? p.tags.split(",") : [],
       status: p.status,
       createdAt: p.createdAt,
-      category: formatCategory(p.category),
+      rejectReason: p.rejectReason || null,
+      canEdit: !!p.canEdit,
+      category: p.category
+        ? {
+            id: p.category.id,
+            name: p.category.name,
+            status: p.category.status,
+          }
+        : null,
     }));
 
     res.json({ success: true, posts: result });
@@ -385,6 +567,7 @@ export const getPostsByUser = async (req, res) => {
     res.status(500).json({ success: false, message: "Error fetching posts" });
   }
 };
+
 export const rejectPost = async (req, res) => {
   try {
     const id = Number(req.params.id);
