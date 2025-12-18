@@ -55,6 +55,19 @@ enum CategoryStatus {
   REJECTED
 }
 
+model PostImage {
+  id     Int    @id @default(autoincrement())
+  post   KBPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId Int
+
+  url      String // Cloudinary secure_url
+  publicId String // Cloudinary public_id
+
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+}
+
 model KBPost {
   id      Int     @id @default(autoincrement())
   title   String
@@ -74,6 +87,7 @@ model KBPost {
   rejectReason   String?
   canEdit        Boolean         @default(false)
   updateRequests UpdateRequest[]
+  images         PostImage[]
 }
 
 enum PostStatus {

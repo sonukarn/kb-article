@@ -13,6 +13,15 @@ export const postApi = API.injectEndpoints({
         };
       },
     }),
+    // ✅ NEW: upload image for Quill content
+    uploadPostImage: builder.mutation({
+      query: (formData) => ({
+        url: "/posts/upload-image",
+        method: "POST",
+        body: formData, // FormData with `image` field
+        credentials: "include",
+      }),
+    }),
 
     getPublishedPosts: builder.query({
       query: ({ category, search } = {}) => {
@@ -148,6 +157,7 @@ export const postApi = API.injectEndpoints({
 
 export const {
   useCreatePostMutation,
+  useUploadPostImageMutation,
   useGetMyPostsQuery,
   useGetAdminPostByIdQuery,
   useGetPublishedPostsQuery,

@@ -2,7 +2,7 @@ import prisma from "../config/prismaClient.js";
 import fs from "fs";
 import main from "../config/AiGemini.js";
 import { generateShortSlug } from "../utils/generateSlug.js";
-
+import cloudinary from "../config/cloudinary.js";
 // helper to send notification
 const notifyUser = (req, userId, payload) => {
   const io = req.app.get("io");
@@ -54,7 +54,56 @@ async function resolveCategoryOnCreate({
   return null;
 }
 
+// images = [{ url, publicId }, ...] from frontend
+const syncPostImages = async (postId, content, images = []) => {
+  // normalize array
+  const list = Array.isArray(images) ? images : [];
+
+  // only keep images that actually appear in the content HTML
+  const referenced = list.filter((img) => img.url && content.includes(img.url));
+
+  // load existing records
+  const existing = await prisma.postImage.findMany({
+    where: { postId },
+  });
+
+  const byPublicId = (arr) => new Map(arr.map((img) => [img.publicId, img]));
+
+  const existingMap = byPublicId(existing);
+  const desiredMap = byPublicId(referenced);
+
+  // 1) Delete images removed from content
+  for (const oldImg of existing) {
+    if (!desiredMap.has(oldImg.publicId)) {
+      // delete from Cloudinary
+      try {
+        await cloudinary.uploader.destroy(oldImg.publicId);
+      } catch (e) {
+        console.error("Failed to delete Cloudinary image:", e.message);
+      }
+      // delete from DB
+      await prisma.postImage.delete({
+        where: { id: oldImg.id },
+      });
+    }
+  }
+
+  // 2) Add new images
+  for (const img of referenced) {
+    if (!existingMap.has(img.publicId)) {
+      await prisma.postImage.create({
+        data: {
+          postId,
+          url: img.url,
+          publicId: img.publicId,
+        },
+      });
+    }
+  }
+};
+
 // ✅ Create Post
+
 // export const createPost = async (req, res) => {
 //   try {
 //     const { title, content, tags, categoryId, newCategoryName } = req.body;
@@ -73,9 +122,22 @@ async function resolveCategoryOnCreate({
 //       return res.status(400).json({ message: e.message });
 //     }
 
+//     // 🔹 generate base slug from title
+//     const baseSlug = generateShortSlug(title);
+
+//     // 🔹 ensure unique in DB
+//     let finalSlug = baseSlug;
+//     const existing = await prisma.kBPost.findUnique({
+//       where: { slug: finalSlug },
+//     });
+//     if (existing) {
+//       finalSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 6)}`;
+//     }
+
 //     const post = await prisma.kBPost.create({
 //       data: {
 //         title,
+//         slug: finalSlug, // 👈 SAVE SLUG
 //         content,
 //         tags: tags
 //           ? Array.isArray(tags)
@@ -93,6 +155,7 @@ async function resolveCategoryOnCreate({
 //       message: "Post submitted for review",
 //       post: {
 //         id: post.id,
+//         slug: post.slug, // 👈 RETURN SLUG
 //         title: post.title,
 //         content: post.content,
 //         tags: post.tags ? post.tags.split(",") : [],
@@ -107,7 +170,8 @@ async function resolveCategoryOnCreate({
 // };
 export const createPost = async (req, res) => {
   try {
-    const { title, content, tags, categoryId, newCategoryName } = req.body;
+    const { title, content, tags, categoryId, newCategoryName, contentImages } =
+      req.body;
 
     if (!title || !content)
       return res.status(400).json({ message: "Title and content required" });
@@ -123,10 +187,7 @@ export const createPost = async (req, res) => {
       return res.status(400).json({ message: e.message });
     }
 
-    // 🔹 generate base slug from title
     const baseSlug = generateShortSlug(title);
-
-    // 🔹 ensure unique in DB
     let finalSlug = baseSlug;
     const existing = await prisma.kBPost.findUnique({
       where: { slug: finalSlug },
@@ -138,7 +199,7 @@ export const createPost = async (req, res) => {
     const post = await prisma.kBPost.create({
       data: {
         title,
-        slug: finalSlug, // 👈 SAVE SLUG
+        slug: finalSlug,
         content,
         tags: tags
           ? Array.isArray(tags)
@@ -152,11 +213,16 @@ export const createPost = async (req, res) => {
       include: { category: true },
     });
 
+    // 👇 sync images
+    if (Array.isArray(contentImages) && contentImages.length) {
+      await syncPostImages(post.id, content, contentImages);
+    }
+
     res.status(201).json({
       message: "Post submitted for review",
       post: {
         id: post.id,
-        slug: post.slug, // 👈 RETURN SLUG
+        slug: post.slug,
         title: post.title,
         content: post.content,
         tags: post.tags ? post.tags.split(",") : [],
@@ -171,10 +237,56 @@ export const createPost = async (req, res) => {
 };
 
 // ✅ User update (re-submit for review)
+// export const updatePostByUser = async (req, res) => {
+//   try {
+//     const id = Number(req.params.id);
+//     const { title, content, tags, categoryId, newCategoryName } = req.body;
+
+//     const post = await prisma.kBPost.findUnique({ where: { id } });
+//     if (!post) return res.status(404).json({ message: "Post not found" });
+//     if (!post.canEdit)
+//       return res
+//         .status(403)
+//         .json({ message: "Edit not allowed for this post" });
+
+//     let resolvedCategoryId = null;
+//     try {
+//       resolvedCategoryId = await resolveCategoryOnCreate({
+//         categoryId,
+//         newCategoryName,
+//         userId: req.user?.id,
+//       });
+//     } catch (e) {
+//       return res.status(400).json({ message: e.message });
+//     }
+
+//     await prisma.kBPost.update({
+//       where: { id },
+//       data: {
+//         title,
+//         content,
+//         tags: tags ? (Array.isArray(tags) ? tags.join(",") : tags) : null,
+//         categoryId: resolvedCategoryId,
+//         status: "REVIEW",
+//         rejectReason: null,
+//         canEdit: false,
+//       },
+//     });
+
+//     res.json({
+//       message: "Post updated & submitted for review",
+//       success: true,
+//     });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ message: "Error updating post", success: false });
+//   }
+// };
 export const updatePostByUser = async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const { title, content, tags, categoryId, newCategoryName } = req.body;
+    const { title, content, tags, categoryId, newCategoryName, contentImages } =
+      req.body;
 
     const post = await prisma.kBPost.findUnique({ where: { id } });
     if (!post) return res.status(404).json({ message: "Post not found" });
@@ -206,6 +318,10 @@ export const updatePostByUser = async (req, res) => {
         canEdit: false,
       },
     });
+
+    if (Array.isArray(contentImages)) {
+      await syncPostImages(id, content, contentImages);
+    }
 
     res.json({
       message: "Post updated & submitted for review",
@@ -427,20 +543,63 @@ export const publishPost = async (req, res) => {
 };
 
 // ✅ Delete post
+// export const deletePost = async (req, res) => {
+//   try {
+//     const id = Number(req.params.id);
+
+//     const post = await prisma.kBPost.findUnique({ where: { id } });
+
+//     if (!post)
+//       return res
+//         .status(404)
+//         .json({ message: "Post not found", success: false });
+
+//     await prisma.kBPost.delete({ where: { id } });
+
+//     // optional notify
+//     notifyUser(req, post.authorId, {
+//       postId: post.id,
+//       title: post.title,
+//       action: "DELETED",
+//     });
+
+//     res.json({
+//       message: "Post deleted successfully",
+//       success: true,
+//     });
+//   } catch (err) {
+//     console.error("Delete error:", err);
+//     res.status(500).json({
+//       message: "Error deleting post",
+//       success: false,
+//     });
+//   }
+// };
 export const deletePost = async (req, res) => {
   try {
     const id = Number(req.params.id);
 
-    const post = await prisma.kBPost.findUnique({ where: { id } });
+    const post = await prisma.kBPost.findUnique({
+      where: { id },
+      include: { images: true }, // 👈 include related images
+    });
 
     if (!post)
       return res
         .status(404)
         .json({ message: "Post not found", success: false });
 
-    await prisma.kBPost.delete({ where: { id } });
+    // delete associated images from Cloudinary
+    for (const img of post.images) {
+      try {
+        await cloudinary.uploader.destroy(img.publicId);
+      } catch (e) {
+        console.error("Failed to delete Cloudinary image:", e.message);
+      }
+    }
 
-    // optional notify
+    await prisma.kBPost.delete({ where: { id } }); // images rows will cascade delete
+
     notifyUser(req, post.authorId, {
       postId: post.id,
       title: post.title,
@@ -788,5 +947,32 @@ export const generateContent = async (req, res) => {
       message: error.message,
       success: false,
     });
+  }
+};
+
+export const uploadPostImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
+
+    // upload to Cloudinary
+    const result = await cloudinary.uploader.upload(req.file.path, {
+      folder: "kb-posts/content",
+    });
+
+    // remove local temp file
+    fs.unlink(req.file.path, () => {});
+
+    return res.status(201).json({
+      success: true,
+      url: result.secure_url,
+      publicId: result.public_id,
+    });
+  } catch (err) {
+    console.error("uploadPostImage error:", err);
+    return res
+      .status(500)
+      .json({ success: false, message: "Error uploading image" });
   }
 };
